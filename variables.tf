@@ -1,3 +1,13 @@
+variable "cluster-endpoint" {
+  description = "(Required) The endpoint of the EKS cluster where Karpenter is going to be installed"
+  type        = string
+}
+
+variable "cluster-certificate-authority-data" {
+  description = "(Required) The CA data for the cluster where Karpenter is going to be installed"
+  type        = string
+}
+
 variable "admiralty" {
   description = "Customize admiralty chart, see `admiralty.tf` for supported values"
   type        = any
