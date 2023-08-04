@@ -12,7 +12,7 @@ locals {
       thanos_bucket           = "thanos-store-${var.cluster-name}"
       thanos_bucket_region    = local.scaleway["region"]
       thanos_store_config     = null
-      thanos_version          = "v0.28.1"
+      thanos_version          = "v0.31.0"
       enabled                 = false
       allowed_cidrs           = ["0.0.0.0/0"]
       default_network_policy  = true
@@ -271,6 +271,13 @@ resource "kubernetes_namespace" "kube-prometheus-stack" {
     }
 
     name = local.kube-prometheus-stack["namespace"]
+  }
+
+  lifecycle {
+    ignore_changes = [
+      metadata[0].annotations,
+      metadata[0].labels,
+    ]
   }
 }
 

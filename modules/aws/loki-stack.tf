@@ -29,12 +29,12 @@ locals {
     test:
       enabled: false
     monitoring:
+      lokiCanary:
+        enabled: false
       selfMonitoring:
         enabled: false
         grafanaAgent:
           installOperator: false
-        lokiCanary:
-          enabled: false
     serviceMonitor:
       enabled: ${local.kube-prometheus-stack["enabled"] || local.victoria-metrics-k8s-stack["enabled"]}
     priorityClassName: ${local.priority-class["create"] ? kubernetes_priority_class.kubernetes_addons[0].metadata[0].name : ""}
@@ -188,15 +188,17 @@ module "loki_bucket" {
   source  = "terraform-aws-modules/s3-bucket/aws"
   version = "~> 3.0"
 
-  block_public_acls       = true
-  block_public_policy     = true
-  restrict_public_buckets = true
-  ignore_public_acls      = true
+  control_object_ownership = true
+  object_ownership         = "ObjectWriter"
 
   force_destroy = local.loki-stack["bucket_force_destroy"]
 
   bucket = local.loki-stack["bucket"]
   acl    = "private"
+
+  versioning = {
+    status = true
+  }
 
   server_side_encryption_configuration = {
     rule = {
@@ -205,6 +207,11 @@ module "loki_bucket" {
       }
     }
   }
+
+  logging = local.s3-logging.enabled ? {
+    target_bucket = local.s3-logging.create_bucket ? module.s3_logging_bucket.s3_bucket_id : local.s3-logging.custom_bucket_id
+    target_prefix = "${var.cluster-name}/${local.loki-stack.name}/"
+  } : {}
 
   tags = local.tags
 
@@ -228,6 +235,7 @@ resource "tls_self_signed_cert" "loki-stack-ca-cert" {
   }
 
   validity_period_hours = 87600
+  early_renewal_hours   = 720
 
   allowed_uses = [
     "cert_signing"
@@ -339,6 +347,7 @@ resource "tls_locally_signed_cert" "promtail-cert" {
   ca_cert_pem        = tls_self_signed_cert.loki-stack-ca-cert[count.index].cert_pem
 
   validity_period_hours = 8760
+  early_renewal_hours   = 720
 
   allowed_uses = [
     "key_encipherment",

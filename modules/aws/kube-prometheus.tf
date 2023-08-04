@@ -18,7 +18,7 @@ locals {
       thanos_bucket                     = "thanos-store-${var.cluster-name}"
       thanos_bucket_force_destroy       = false
       thanos_store_config               = null
-      thanos_version                    = "v0.28.1"
+      thanos_version                    = "v0.31.0"
       enabled                           = false
       allowed_cidrs                     = ["0.0.0.0/0"]
       default_network_policy            = true
@@ -401,15 +401,17 @@ module "kube-prometheus-stack_thanos_bucket" {
   source  = "terraform-aws-modules/s3-bucket/aws"
   version = "~> 3.0"
 
-  block_public_acls       = true
-  block_public_policy     = true
-  restrict_public_buckets = true
-  ignore_public_acls      = true
+  control_object_ownership = true
+  object_ownership         = "ObjectWriter"
 
   force_destroy = local.kube-prometheus-stack["thanos_bucket_force_destroy"]
 
   bucket = local.kube-prometheus-stack["thanos_bucket"]
   acl    = "private"
+
+  versioning = {
+    status = true
+  }
 
   server_side_encryption_configuration = {
     rule = {
@@ -418,6 +420,12 @@ module "kube-prometheus-stack_thanos_bucket" {
       }
     }
   }
+
+  logging = local.s3-logging.enabled ? {
+    target_bucket = local.s3-logging.create_bucket ? module.s3_logging_bucket.s3_bucket_id : local.s3-logging.custom_bucket_id
+    target_prefix = "${var.cluster-name}/${local.kube-prometheus-stack.name}/"
+  } : {}
+
   tags = local.tags
 }
 
@@ -431,6 +439,13 @@ resource "kubernetes_namespace" "kube-prometheus-stack" {
     }
 
     name = local.kube-prometheus-stack["namespace"]
+  }
+
+  lifecycle {
+    ignore_changes = [
+      metadata[0].annotations,
+      metadata[0].labels,
+    ]
   }
 }
 
